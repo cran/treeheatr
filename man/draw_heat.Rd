@@ -9,12 +9,12 @@ draw_heat(
   fit,
   feat_types = NULL,
   target_cols = NULL,
-  target_lab_disp = "",
+  target_lab_disp = fit$target_lab,
   trans_type = c("percentize", "normalize", "scale", "none"),
   clust_feats = TRUE,
+  feats = NULL,
   show_all_feats = FALSE,
   p_thres = 0.05,
-  custom_tree = NULL,
   cont_legend = FALSE,
   cate_legend = FALSE,
   cont_cols = ggplot2::scale_fill_viridis_c,
@@ -38,7 +38,7 @@ If feature types are not supplied, infer from column type.}
 level colors for targets, defaults to viridis option B.}
 
 \item{target_lab_disp}{Character string for displaying the label of target label.
-If NULL, use `target_lab`.}
+If not provided, use `target_lab`.}
 
 \item{trans_type}{Character string of 'normalize', 'scale' or 'none'.
 If 'scale', subtract the mean and divide by the standard deviation.
@@ -49,31 +49,30 @@ https://cran.rstudio.com/package=heatmaply/vignettes/heatmaply.html#data-transfo
 
 \item{clust_feats}{Logical. If TRUE, performs cluster on the features.}
 
-\item{show_all_feats}{Logical. If TRUE, show all features regarless p_thres.}
+\item{feats}{Character vector of feature names to be displayed in the heatmap.
+If NULL, display features of which P values are less than `p_thres`.}
+
+\item{show_all_feats}{Logical. If TRUE, show all features regardless of `p_thres`.}
 
 \item{p_thres}{Numeric value indicating the p-value threshold of feature importance.
 Feature with p-values computed from the decision tree below this value
 will be displayed on the heatmap.}
 
-\item{custom_tree}{Custom tree with the partykit syntax.
-https://cran.r-project.org/web/packages/partykit/vignettes/partykit.pdf
-If NULL, a conditional inference tree is computed.}
-
 \item{cont_legend}{Function determining the options for legend of continuous variables,
-defaults to FALSE. If TRUE, use guide_colorbar(barwidth = 10, barheight = 0.5, title = NULL).
+defaults to FALSE. If TRUE, use `guide_colorbar(barwidth = 10, barheight = 0.5, title = NULL)`.
 Any other [`guides()`](https://ggplot2.tidyverse.org/reference/guides.html) functions
 would also work.}
 
 \item{cate_legend}{Function determining the options for legend of categorical variables,
-defaults to FALSE. If TRUE, use guide_legend(title = NULL).
+defaults to FALSE. If TRUE, use `guide_legend(title = NULL)`.
 Any other [`guides()`](https://ggplot2.tidyverse.org/reference/guides.html) functions
 would also work.}
 
 \item{cont_cols}{Function determining color scale for continuous variable,
-defaults to scale_fill_viridis_c(guide = cont_legend)}
+defaults to `scale_fill_viridis_c(guide = cont_legend)`.}
 
 \item{cate_cols}{Function determining color scale for nominal categorical variable,
-defaults to scale_fill_viridis_d(begin = 0.3, end = 0.9).}
+defaults to `scale_fill_viridis_d(begin = 0.3, end = 0.9)`.}
 
 \item{panel_space}{Spacing between facets relative to viewport,
 recommended to range from 0.001 to 0.01.}

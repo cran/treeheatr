@@ -5,6 +5,8 @@
 #' @param dat Dataframe with samples from original dataset ordered according to
 #' the clustering within each leaf node.
 #' @param fit party object, e.g., as output from partykit::ctree()
+#' @param target_lab_disp Character string for displaying the label of target label.
+#' If not provided, use `target_lab`.
 #' @param trans_type Character string of 'normalize', 'scale' or 'none'.
 #' If 'scale', subtract the mean and divide by the standard deviation.
 #' If 'normalize', i.e., max-min normalize, subtract the min and divide by the max.
@@ -12,22 +14,24 @@
 #' More information on what transformation to choose can be acquired here:
 #' https://cran.rstudio.com/package=heatmaply/vignettes/heatmaply.html#data-transformation-scaling-normalize-and-percentize
 #' @param clust_feats Logical. If TRUE, performs cluster on the features.
-#' @param show_all_feats Logical. If TRUE, show all features regarless p_thres.
+#' @param feats Character vector of feature names to be displayed in the heatmap.
+#' If NULL, display features of which P values are less than `p_thres`.
+#' @param show_all_feats Logical. If TRUE, show all features regardless of `p_thres`.
 #' @param p_thres Numeric value indicating the p-value threshold of feature importance.
 #' Feature with p-values computed from the decision tree below this value
 #' will be displayed on the heatmap.
 #' @param cont_legend Function determining the options for legend of continuous variables,
-#' defaults to FALSE. If TRUE, use guide_colorbar(barwidth = 10, barheight = 0.5, title = NULL).
+#' defaults to FALSE. If TRUE, use `guide_colorbar(barwidth = 10, barheight = 0.5, title = NULL)`.
 #' Any other [`guides()`](https://ggplot2.tidyverse.org/reference/guides.html) functions
 #' would also work.
 #' @param cate_legend Function determining the options for legend of categorical variables,
-#' defaults to FALSE. If TRUE, use guide_legend(title = NULL).
+#' defaults to FALSE. If TRUE, use `guide_legend(title = NULL)`.
 #' Any other [`guides()`](https://ggplot2.tidyverse.org/reference/guides.html) functions
 #' would also work.
 #' @param cont_cols Function determining color scale for continuous variable,
-#' defaults to scale_fill_viridis_c(guide = cont_legend)
+#' defaults to `scale_fill_viridis_c(guide = cont_legend)`.
 #' @param cate_cols Function determining color scale for nominal categorical variable,
-#' defaults to scale_fill_viridis_d(begin = 0.3, end = 0.9).
+#' defaults to `scale_fill_viridis_d(begin = 0.3, end = 0.9)`.
 #' @param target_space Numeric value indicating spacing between
 #' the target label and the rest of the features
 #' @param target_pos Character string specifying the position of the target label
@@ -44,9 +48,9 @@
 #'
 #'
 draw_heat <- function(
-  dat, fit, feat_types = NULL, target_cols = NULL, target_lab_disp = '',
+  dat, fit, feat_types = NULL, target_cols = NULL, target_lab_disp = fit$target_lab,
   trans_type = c('percentize', 'normalize', 'scale', 'none'), clust_feats = TRUE,
-  show_all_feats = FALSE, p_thres = 0.05, custom_tree = NULL, cont_legend = FALSE,
+  feats = NULL, show_all_feats = FALSE, p_thres = 0.05, cont_legend = FALSE,
   cate_legend = FALSE, cont_cols = ggplot2::scale_fill_viridis_c,
   cate_cols = ggplot2::scale_fill_viridis_d, panel_space = 0.001, target_space = 0.05,
   target_pos = 'top'){
@@ -64,12 +68,13 @@ draw_heat <- function(
   cont_cols <- do.call(cont_cols, list(begin = 0.1, guide = cont_legend))
   cate_cols <- do.call(cate_cols, list(begin = 0.3, end = 0.9, guide = cate_legend))
 
-  feat_names <- setdiff(colnames(fit$data), 'my_target')
+  target_lab <- all.vars(stats::update(fit$terms, . ~ 0))
+  feat_names <- setdiff(colnames(fit$data), target_lab)
 
   # if feature types are not supplied, infer from column type:
   feat_types <- feat_types %||% sapply(dat[, feat_names], class)
-  disp_feats <- get_disp_feats(
-    fit, feat_names, show_all_feats, custom_tree, p_thres)
+  disp_feats <- feats %||% get_disp_feats(
+    fit, feat_names, show_all_feats, p_thres)
 
   # prepare feature orders:
   feat_list <- prepare_feats(dat, disp_feats, feat_types, clust_feats, trans_type)
@@ -79,7 +84,8 @@ draw_heat <- function(
   n_cates <- length(unique(tile_cate$cate_feat))
 
   # number of features displayed:
-  n_feats <- length(disp_feats)
+  n_feats <- n_conts + n_cates
+
   target_y <- dplyr::case_when(
     target_pos == 'top' ~ (n_feats + 1 + target_space),
     target_pos == 'bottom' ~ (- target_space)) # if 'none', returns NA
@@ -88,7 +94,7 @@ draw_heat <- function(
     target_cols +
     facet_grid(cols = vars(node_id), scales = 'free_x', space = 'free') +
     geom_tile(data = dat,
-      aes(x = Sample, y = target_y, fill = my_target)) +
+      aes(x = Sample, y = target_y, fill = !! sym(target_lab))) +
     scale_x_continuous(expand =  c(0,0)) +
     labs(x = NULL, y = NULL) +
     theme_minimal() +
@@ -127,14 +133,16 @@ draw_heat <- function(
     dheat <- dheat +
       ggnewscale::new_scale_fill() +
       geom_tile(data = tile_cont, aes(y = y, x = Sample, fill = value)) +
-      theme(legend.position = 'bottom') +
+      theme(legend.position = 'bottom',
+            legend.margin = margin(0, 0, 0, 0),
+            legend.box.margin = margin(-5, 0, 0, 0)) +
       cont_cols
   }
 
   dheat <- dheat +
     scale_y_continuous(
       expand = c(0, 0),
-      breaks = c(target_y, seq.int(n_feats)),
+      breaks = c(target_y, if (n_feats > 0) seq.int(n_feats)),
       labels = c(target_lab_disp, levels(tile_cate$cate_feat), levels(tile_cont$cont_feat)))
 
   return(dheat)
@@ -152,8 +160,8 @@ draw_heat <- function(
 #' @inheritParams draw_heat
 #' @return A character vector of feature names.
 #'
-get_disp_feats <- function(fit, feat_names, show_all_feats, custom_tree, p_thres){
-  if (show_all_feats || (!is.null(custom_tree))){
+get_disp_feats <- function(fit, feat_names, show_all_feats, p_thres){
+  if (show_all_feats || (!(fit$autotree))){
     disp_feats <- feat_names
   } else {
     # important features to display in decision trees
@@ -185,6 +193,11 @@ get_disp_feats <- function(fit, feat_names, show_all_feats, custom_tree, p_thres
 #' from the original dataset.
 #'
 prepare_feats <- function(dat, disp_feats, feat_types, clust_feats, trans_type){
+
+  if (is.na(disp_feats[1])){
+    return(list(df_cont = NULL, df_cate = NULL))
+  }
+
   cont_feats <- names(feat_types[feat_types == 'numeric'| feat_types == 'integer'])
   cate_feats <- names(feat_types[feat_types == 'factor'])
 

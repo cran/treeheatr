@@ -34,18 +34,52 @@
 
 #' Get color functions from character vectors
 #' @param my_cols Character vectors of different hex values
+#' @param guide A function used to create a guide or its name.
+#' Inherit from [`ggplot2::guides()`](https://ggplot2.tidyverse.org/reference/guides.html).
 #' @inheritParams heat_tree
 #'
-get_cols <- function(my_cols, task) {
-  vir_opts <- list(option = 'A', begin = 0.3, end = 0.9, guide = FALSE)
+get_cols <- function(my_cols, task, guide = FALSE) {
+  vir_opts <- list(option = 'A', begin = 0.3, end = 0.9)
   my_cols <- if (!is.null(my_cols)){
-    my_cols <- do.call(ggplot2::scale_fill_manual, list(values = my_cols, guide = FALSE))
+    my_cols <- do.call(ggplot2::scale_fill_manual, list(values = my_cols, guide = guide, drop = FALSE))
   } else {
     switch(task,
-           classification = do.call(ggplot2::scale_fill_viridis_d, vir_opts),
-           regression = do.call(ggplot2::scale_fill_viridis_c, vir_opts))
+           classification = do.call(ggplot2::scale_fill_viridis_d, c(vir_opts, guide = guide, drop = FALSE)),
+           regression = do.call(ggplot2::scale_fill_viridis_c, c(vir_opts, guide = guide)))
   }
   my_cols
+}
+
+#' Align decision tree and heatmap:
+#'
+#' @param dheat ggplot2 grob object of the heatmap.
+#' @param dtree ggplot2 grob object of the decision tree
+#' @inheritParams heat_tree
+#'
+#' @return  A gtable/grob object of the decision tree (top) and heatmap (bottom).
+#'
+align_plots <- function(
+  dheat, dtree, heat_rel_height, show = c('heat-tree', 'heat-only', 'tree-only')) {
+
+  show <- match.arg(show)
+
+  g_tree <- ggplot2::ggplotGrob(dtree)
+  g_heat <- ggplot2::ggplotGrob(dheat)
+
+  if (show == 'tree-only'){
+    g <- g_tree
+  } else if (show == 'heat-only'){
+    g <- g_heat
+  } else {
+    panel_id <- g_heat$layout[grep('panel', g_heat$layout$name),]
+    heat_height <- g_heat$heights[panel_id[1, 't']]
+
+    g <- g_heat %>%
+      gtable::gtable_add_rows(heat_height*(1/heat_rel_height - 1), 0) %>%
+      gtable::gtable_add_grob(g_tree, t = 1, l = min(panel_id$l), r = max(panel_id$l))
+  }
+
+  g
 }
 
 #' Print a ggHeatTree object.

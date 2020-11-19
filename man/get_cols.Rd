@@ -4,13 +4,16 @@
 \alias{get_cols}
 \title{Get color functions from character vectors}
 \usage{
-get_cols(my_cols, task)
+get_cols(my_cols, task, guide = FALSE)
 }
 \arguments{
 \item{my_cols}{Character vectors of different hex values}
 
 \item{task}{Character string indicating the type of problem,
 either 'classification' (categorical outcome) or 'regression' (continuous outcome).}
+
+\item{guide}{A function used to create a guide or its name.
+Inherit from [`ggplot2::guides()`](https://ggplot2.tidyverse.org/reference/guides.html).}
 }
 \description{
 Get color functions from character vectors
